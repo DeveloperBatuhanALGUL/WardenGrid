@@ -12,7 +12,7 @@ WardenGrid is an open-source monitoring tool designed to detect anomalous behavi
 
 ## Status
 
-Early development. Core architecture and detection modules are in progress.
+Early development. Core protocol parsing, detection, capture, and reporting layers are functional. Web dashboard and additional protocol support are in progress.
 
 ## Rationale
 
@@ -24,7 +24,7 @@ Critical infrastructure such as power generation and distribution systems increa
 | :--- | :--- |
 | Cross-Platform | Native builds for Windows, macOS, and Linux from a single codebase. |
 | Defensive Only | Detection and monitoring only. No offensive capability of any kind. |
-| Protocol-Aware | Parses industrial protocols, starting with Modbus/TCP, with DNP3 planned. |
+| Protocol-Aware | Parses industrial protocols. Modbus/TCP and DNP3 are implemented. |
 | Layered Architecture | Capture, protocol parsing, detection, and reporting are independently testable modules. |
 | No Vendor Lock-In | Built entirely on open standards with no proprietary dependencies. |
 
@@ -36,21 +36,74 @@ Full system design is documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ```text
 WardenGrid/
-├── cmd/wardengrid/        Entry point and CLI
-├── internal/capture/      Network capture layer
-├── internal/protocol/     Industrial protocol parsers
-├── internal/detector/     Anomaly detection engine
-├── internal/platform/     OS-specific abstractions
-├── internal/simulator/    Synthetic ICS traffic generator for testing
-├── internal/report/       Logging and alert reporting
-├── web/dashboard/         Monitoring dashboard
-├── docs/                  Architecture and design documentation
-└── test/fixtures/         Test data and fixtures
+├── cmd/wardengrid/             Entry point and CLI
+├── internal/capture/           Live packet capture layer (pcap-based)
+├── internal/protocol/modbus/   Modbus/TCP parser
+├── internal/protocol/dnp3/     DNP3 parser
+├── internal/detector/          Rule-based and statistical anomaly detection
+├── internal/simulator/         Synthetic ICS traffic generator for testing
+├── internal/report/            Alert reporting in text and JSON formats
+├── web/dashboard/               Monitoring dashboard (planned)
+├── docs/                        Architecture and design documentation
+└── .github/workflows/           Continuous integration pipeline
 ```
 
 ## Installation
 
-Build instructions will be published once the first functional module is complete.
+### Prerequisites
+
+WardenGrid requires Go 1.26 or later. Live packet capture requires libpcap (Linux and macOS) or Npcap (Windows, not yet implemented).
+
+**Linux:**
+
+```bash
+sudo apt-get install libpcap-dev
+```
+
+**macOS:**
+
+```bash
+brew install libpcap pkg-config
+```
+
+If libpcap is not found at build time on macOS, set the following environment variables before building:
+
+```bash
+export PKG_CONFIG_PATH="/opt/homebrew/opt/libpcap/lib/pkgconfig:$PKG_CONFIG_PATH"
+export LDFLAGS="-L/opt/homebrew/opt/libpcap/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/libpcap/include"
+```
+
+**Windows:**
+
+Live capture is not yet implemented on Windows. The CLI, protocol parsers, detector, and simulator all build and run normally.
+
+### Build
+
+```bash
+git clone https://github.com/DeveloperBatuhanALGUL/WardenGrid.git
+cd WardenGrid
+go build -o bin/wardengrid ./cmd/wardengrid
+```
+
+### Run
+
+WardenGrid currently runs against simulated traffic. Available scenarios:
+
+```bash
+./bin/wardengrid -scenario normal -count 5
+./bin/wardengrid -scenario unknown-function -count 5
+./bin/wardengrid -scenario protected-write -count 4
+./bin/wardengrid -scenario write-frequency -count 10
+```
+
+Use the `-json` flag to emit alerts as JSON lines instead of text.
+
+### Test
+
+```bash
+go test ./... -v
+```
 
 ## License
 
