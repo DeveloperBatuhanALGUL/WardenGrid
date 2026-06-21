@@ -4,6 +4,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Language](https://img.shields.io/badge/Language-Go-00ADD8)
 ![Status](https://img.shields.io/badge/Status-Early%20Development-orange)
+![CI](https://github.com/DeveloperBatuhanALGUL/WardenGrid/actions/workflows/ci.yml/badge.svg)
 
 **Cross-platform ICS/SCADA security monitoring and anomaly detection system.**
 
