@@ -54,6 +54,7 @@ func New() *Detector {
 			&UnknownFunctionCodeRule{},
 			&ProtectedRegisterWriteRule{},
 			&WriteFrequencyRule{},
+			NewBaselineDeviationRule(),
 		},
 	}
 }
