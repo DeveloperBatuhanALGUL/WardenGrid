@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WardenGrid Dashboard</title>
+<style>
+body {
+	font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+	background-color: #0f1115;
+	color: #e6e6e6;
+	margin: 0;
+	padding: 2rem;
+}
+h1 {
+	font-size: 1.4rem;
+	border-bottom: 1px solid #2a2d35;
+	padding-bottom: 0.75rem;
+}
+.subtitle {
+	color: #8a8f98;
+	font-size: 0.85rem;
+	margin-top: -0.5rem;
+	margin-bottom: 1.5rem;
+}
+.upload-area {
+	border: 1px dashed #3a3f4a;
+	border-radius: 8px;
+	padding: 1.5rem;
+	text-align: center;
+	margin-bottom: 1.5rem;
+	color: #8a8f98;
+}
+input[type="file"] {
+	color: #e6e6e6;
+}
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.85rem;
+}
+th, td {
+	text-align: left;
+	padding: 0.6rem 0.8rem;
+	border-bottom: 1px solid #1f2228;
+}
+th {
+	color: #8a8f98;
+	font-weight: 600;
+	text-transform: uppercase;
+	font-size: 0.7rem;
+	letter-spacing: 0.05em;
+}
+.badge {
+	padding: 0.15rem 0.5rem;
+	border-radius: 4px;
+	font-weight: 600;
+	font-size: 0.75rem;
+}
+.sev-INFO { background-color: #2a3a4a; color: #8fc7ff; }
+.sev-LOW { background-color: #2a3a2a; color: #8fdf8f; }
+.sev-MEDIUM { background-color: #4a3a1a; color: #ffcc66; }
+.sev-HIGH { background-color: #4a2a1a; color: #ff9966; }
+.sev-CRITICAL { background-color: #4a1a1a; color: #ff6666; }
+.empty-state {
+	color: #5a5f68;
+	padding: 2rem;
+	text-align: center;
+	font-size: 0.9rem;
+}
+.summary {
+	display: flex;
+	gap: 1rem;
+	margin-bottom: 1.5rem;
+}
+.summary-card {
+	background-color: #15171c;
+	border: 1px solid #2a2d35;
+	border-radius: 8px;
+	padding: 0.8rem 1.2rem;
+	flex: 1;
+}
+.summary-card .count {
+	font-size: 1.6rem;
+	font-weight: 700;
+}
+.summary-card .label {
+	color: #8a8f98;
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+</style>
+</head>
+<body>
+
+<h1>WardenGrid Dashboard</h1>
+<div class="subtitle">Offline alert viewer. Load a JSON lines file produced by the CLI with the -json flag.</div>
+
+<div class="upload-area">
+	<input type="file" id="fileInput" accept=".json,.jsonl,.log,.txt">
+	<div style="margin-top: 0.5rem;">Select an alert log file produced by <code>wardengrid -json</code></div>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<table id="alertTable">
+	<thead>
+		<tr>
+			<th>Timestamp</th>
+			<th>Severity</th>
+			<th>Rule</th>
+			<th>Source</th>
+			<th>Destination</th>
+			<th>Description</th>
+		</tr>
+	</thead>
+	<tbody id="alertBody"></tbody>
+</table>
+
+<div class="empty-state" id="emptyState">No alerts loaded yet.</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const alertBody = document.getElementById('alertBody');
+const emptyState = document.getElementById('emptyState');
+const summary = document.getElementById('summary');
+
+fileInput.addEventListener('change', function (event) {
+	const file = event.target.files[0];
+	if (!file) {
+		return;
+	}
+	const reader = new FileReader();
+	reader.onload = function (e) {
+		renderAlerts(parseAlertLines(e.target.result));
+	};
+	reader.readAsText(file);
+});
+
+function parseAlertLines(text) {
+	const lines = text.split('\n').filter(function (line) {
+		return line.trim().length > 0;
+	});
+	const alerts = [];
+	for (const line of lines) {
+		try {
+			alerts.push(JSON.parse(line));
+		} catch (err) {
+			continue;
+		}
+	}
+	return alerts;
+}
+
+function renderAlerts(alerts) {
+	alertBody.innerHTML = '';
+
+	if (alerts.length === 0) {
+		emptyState.style.display = 'block';
+		summary.innerHTML = '';
+		return;
+	}
+
+	emptyState.style.display = 'none';
+	renderSummary(alerts);
+
+	for (const alert of alerts) {
+		const row = document.createElement('tr');
+
+		const severity = alert.severity || 'UNKNOWN';
+		const badgeClass = 'sev-' + severity;
+
+		row.innerHTML =
+			'<td>' + escapeHtml(alert.timestamp || '') + '</td>' +
+			'<td><span class="badge ' + badgeClass + '">' + escapeHtml(severity) + '</span></td>' +
+			'<td>' + escapeHtml(alert.rule || '') + '</td>' +
+			'<td>' + escapeHtml(alert.source_ip || '') + '</td>' +
+			'<td>' + escapeHtml(alert.dest_ip || '') + '</td>' +
+			'<td>' + escapeHtml(alert.description || '') + '</td>';
+
+		alertBody.appendChild(row);
+	}
+}
+
+function renderSummary(alerts) {
+	const counts = {};
+	for (const alert of alerts) {
+		const sev = alert.severity || 'UNKNOWN';
+		counts[sev] = (counts[sev] || 0) + 1;
+	}
+
+	summary.innerHTML = '';
+
+	const totalCard = buildSummaryCard(alerts.length, 'Total Alerts');
+	summary.appendChild(totalCard);
+
+	for (const sev of ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']) {
+		if (counts[sev]) {
+			summary.appendChild(buildSummaryCard(counts[sev], sev));
+		}
+	}
+}
+
+function buildSummaryCard(count, label) {
+	const card = document.createElement('div');
+	card.className = 'summary-card';
+	card.innerHTML = '<div class="count">' + count + '</div><div class="label">' + escapeHtml(label) + '</div>';
+	return card;
+}
+
+function escapeHtml(value) {
+	const div = document.createElement('div');
+	div.textContent = String(value);
+	return div.innerHTML;
+}
+</script>
+
+</body>
+</html>
