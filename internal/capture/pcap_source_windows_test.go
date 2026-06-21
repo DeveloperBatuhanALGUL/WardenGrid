@@ -22,3 +22,10 @@ func TestNewPcapSourceDefaults(t *testing.T) {
 		t.Errorf("expected promiscuous mode to default to false")
 	}
 }
+
+func TestListInterfacesReturnsUnsupportedOnWindows(t *testing.T) {
+	_, err := ListInterfaces()
+	if err != ErrWindowsCaptureUnsupported {
+		t.Fatalf("expected ErrWindowsCaptureUnsupported, got %v", err)
+	}
+}
